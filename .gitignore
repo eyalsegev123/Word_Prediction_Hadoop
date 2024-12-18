@@ -1,0 +1,9 @@
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+Assignment2.pdf
+heb-stopwords.txt
+Hadoop/target/
