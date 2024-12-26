@@ -7,26 +7,48 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
 import java.util.StringTokenizer;
 
-public class WordCount {
+public class WordCount{
 
     public static class MapperClass extends Mapper<LongWritable, Text, Text, IntWritable> {
         private final static IntWritable one = new IntWritable(1);
         private Text word = new Text();
 
+        //ngram format: ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
         @Override
-        public void map(LongWritable key, Text value, Context context) throws IOException,  InterruptedException {
-            StringTokenizer itr = new StringTokenizer(value.toString());
-            while (itr.hasMoreTokens()) {
-                word.set(itr.nextToken());
-                context.write(word, one);
+        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            String line = value.toString();
+            String[] fields = line.split("\t"); // Split by tab
+            
+            if (fields.length == 5) {
+                // Extract 3-gram and count data
+                String ngram = fields[0]; // "w1 w2 w3"
+                int matchCount = Integer.parseInt(fields[2]);
+                
+                // Emit 3-gram
+                word.set(ngram);
+                context.write(word, new IntWritable(matchCount));
+                
+                // Emit 2-gram
+                String[] tokens = ngram.split(" ");
+                if (tokens.length == 3) {
+                    for(int i = 1; i < 3; i++) {
+                        String bigram = tokens[i-1] + " " + tokens[i];
+                        word.set(bigram);
+                        context.write(word, new IntWritable(matchCount));
+                        // Emit 1-gram
+                        word.set(tokens[i]);
+                        context.write(word, new IntWritable(matchCount));
+                    } 
+                }
             }
         }
+        
     }
 
     public static class ReducerClass extends Reducer<Text,IntWritable,Text,IntWritable> {
@@ -40,13 +62,14 @@ public class WordCount {
         }
     }
 
+
     public static class PartitionerClass extends Partitioner<Text, IntWritable> {
         @Override
         public int getPartition(Text key, IntWritable value, int numPartitions) {
             return key.hashCode() % numPartitions;
         }
     }
-
+    
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 1 started!");
         System.out.println(args.length > 0 ? args[0] : "no args");
@@ -62,14 +85,12 @@ public class WordCount {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
-//        For n_grams S3 files.
-//        Note: This is English version and you should change the path to the relevant one
-//        job.setOutputFormatClass(TextOutputFormat.class);
-//        job.setInputFormatClass(SequenceFileInputFormat.class);
-//        TextInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/eng-us-all/3gram/data"));
-
-        FileInputFormat.addInputPath(job, new Path("s3://bucket163897429777/arbix.txt"));
-        FileOutputFormat.setOutputPath(job, new Path("s3://bucket163897429777/output_word_count"));
+        // For n_grams S3 files.
+        // Note: This is English version and you should change the path to the relevant one
+        job.setInputFormatClass(SequenceFileInputFormat.class);
+        job.setOutputFormatClass(TextOutputFormat.class);
+        SequenceFileInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
+        TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 

@@ -9,6 +9,7 @@ import com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduce;
 import com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClientBuilder;
 import com.amazonaws.services.elasticmapreduce.model.*;
 
+
 public class App {
     public static AWSCredentialsProvider credentialsProvider;
     public static AmazonS3 S3;
