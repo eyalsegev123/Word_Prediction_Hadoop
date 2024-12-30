@@ -1,8 +1,6 @@
-import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -12,8 +10,6 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 public class Step2{
     
@@ -34,7 +30,7 @@ public class Step2{
                 word.set(twoGram);
                 context.write(word, new Text(textValue));
             }
-            else //check with malawach/hava if we got 2 we need to send also the second word
+            else 
                 context.write(textKey, textValue);
         }
         
@@ -50,15 +46,16 @@ public class Step2{
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context) 
                 throws IOException, InterruptedException {
-            
-            if(key.toString().split(" ").length == 1) {
+            String[] words = key.toString().split(" ");
+
+            if(words.length == 1) {
                 String valueOf1gram = "";
-                for(Text value : values)  // Is this for relevant or not???
+                for(Text value : values)
                     valueOf1gram += value.toString();
                 context.write(key, new Text(valueOf1gram));
             }
 
-            if(word.length != 2){
+            else if(words.length != 2){
                 System.out.println("error: got a 3gram");
                 return;
             }
@@ -71,7 +68,6 @@ public class Step2{
                         break; 
                     }        
                 }
-                String [] words = key.toString().split(" ");
                 
                 for (Text value : values) {
                     String newValueOf2gram = "";

@@ -1,9 +1,6 @@
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapreduce.Mapper.Context;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -13,14 +10,11 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+
 
 public class Step3 {
     
     public static class MapperClass3 extends Mapper<Text, Text, Text, Text> {
-        private Text word = new Text();
-
         //ngram format from Google Books:
         //ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
         @Override

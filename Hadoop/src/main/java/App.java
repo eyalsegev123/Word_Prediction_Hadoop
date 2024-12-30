@@ -33,7 +33,7 @@ public class App {
                 .withCredentials(credentialsProvider)
                 .withRegion("us-east-1")
                 .build();
-        System.out.println( "list cluster");
+        System.out.println("list cluster");
         System.out.println( emr.listClusters());
 
         // Step 1
