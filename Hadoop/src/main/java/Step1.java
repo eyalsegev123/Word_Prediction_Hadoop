@@ -14,9 +14,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class WordCount{
+public class Step1{
 
-    public static class MapperClass extends Mapper<LongWritable, Text, Text, IntWritable> {
+    public static class MapperClass1 extends Mapper<LongWritable, Text, Text, IntWritable> {
         private Text word = new Text();
 
         //ngram format from Google Books:
@@ -45,7 +45,7 @@ public class WordCount{
     // yeled tov halah : 60
     // yeled nehmad halah : 70
 
-    public static class ReducerClass extends Reducer<Text, IntWritable, Text, Text> {
+    public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text> {
         private HashMap<String, Integer> currentWordGrams;
         private String currentFirstWord = null;
 
@@ -99,7 +99,7 @@ public class WordCount{
         }
     }
 
-    public static class PartitionerClass extends Partitioner<Text, IntWritable> {
+    public static class PartitionerClass1 extends Partitioner<Text, IntWritable> {
         @Override
         public int getPartition(Text key, IntWritable value, int numPartitions) {
             String ngram = key.toString();
@@ -110,18 +110,17 @@ public class WordCount{
     
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 1 started!");
-        System.out.println(args.length > 0 ? args[0] : "no args");
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "Word Count");
-        job.setJarByClass(WordCount.class);
-        job.setMapperClass(MapperClass.class);
-        job.setPartitionerClass(PartitionerClass.class);
-        job.setCombinerClass(ReducerClass.class);
-        job.setReducerClass(ReducerClass.class);
+        Job job = Job.getInstance(conf, "Step1 - Word Counting");
+        job.setJarByClass(Step1.class);
+        job.setMapperClass(MapperClass1.class);
+        job.setPartitionerClass(PartitionerClass1.class);
+        job.setCombinerClass(ReducerClass1.class);
+        job.setReducerClass(ReducerClass1.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(IntWritable.class);
         job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
+        job.setOutputValueClass(Text.class);
 
         // For n_grams S3 files.
         // Note: This is English version and you should change the path to the relevant one
@@ -130,7 +129,7 @@ public class WordCount{
         SequenceFileInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/1gram/data"));
         SequenceFileInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
         SequenceFileInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
-        TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output"));
+        TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output/step1"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 

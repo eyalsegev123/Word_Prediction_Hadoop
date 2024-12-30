@@ -37,21 +37,42 @@ public class App {
         System.out.println( emr.listClusters());
 
         // Step 1
-        HadoopJarStepConfig step1 = new HadoopJarStepConfig()
-                .withJar("s3://bucket163897429777/jars/WordCount.jar")
+        HadoopJarStepConfig firstStep = new HadoopJarStepConfig()
+                .withJar("s3://hashem-itbarach/jars/Step1.jar")
                 .withMainClass("Step1");
+
+        // Step 2
+        HadoopJarStepConfig secondStep = new HadoopJarStepConfig()
+                .withJar("s3://hashem-itbarach/jars/Step2.jar")
+                .withMainClass("Step2");
+
+        //Step 3
+        HadoopJarStepConfig thirdStep = new HadoopJarStepConfig()
+                .withJar("s3://hashem-itbarach/jars/Step3.jar")
+                .withMainClass("Step3");
+
 
         StepConfig stepConfig1 = new StepConfig()
                 .withName("Step1")
-                .withHadoopJarStep(step1)
+                .withHadoopJarStep(firstStep)
                 .withActionOnFailure("TERMINATE_JOB_FLOW");
 
+        StepConfig stepConfig2 = new StepConfig()
+                .withName("Step2")
+                .withHadoopJarStep(secondStep)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
+        StepConfig stepConfig3 = new StepConfig()
+                .withName("Step3")
+                .withHadoopJarStep(thirdStep)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+                
         //Job flow
         JobFlowInstancesConfig instances = new JobFlowInstancesConfig()
                 .withInstanceCount(numberOfInstances)
                 .withMasterInstanceType(InstanceType.M4Large.toString())
                 .withSlaveInstanceType(InstanceType.M4Large.toString())
-                .withHadoopVersion("2.9.2")
+                .withHadoopVersion("3.4.1")
                 .withEc2KeyName("vockey")
                 .withKeepJobFlowAliveWhenNoSteps(false)
                 .withPlacement(new PlacementType("us-east-1a"));
@@ -60,8 +81,8 @@ public class App {
         RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
                 .withName("Map reduce project")
                 .withInstances(instances)
-                .withSteps(stepConfig1)
-                .withLogUri("s3://bucket163897429777/logs/")
+                .withSteps(stepConfig1, stepConfig2, stepConfig3)
+                .withLogUri("s3://hashem-itbarach/logs/")
                 .withServiceRole("EMR_DefaultRole")
                 .withJobFlowRole("EMR_EC2_DefaultRole")
                 .withReleaseLabel("emr-5.11.0");
