@@ -80,9 +80,9 @@ public class Step2{
         }            
     }
 
-    public static class PartitionerClass2 extends Partitioner<Text, IntWritable> {
+    public static class PartitionerClass2 extends Partitioner<Text, Text> {
         @Override
-        public int getPartition(Text key, IntWritable value, int numPartitions) {
+        public int getPartition(Text key, Text value, int numPartitions) {
             String ngram = key.toString();
             String firstWord = ngram.split(" ")[0];
             return Math.abs(firstWord.hashCode() % numPartitions);

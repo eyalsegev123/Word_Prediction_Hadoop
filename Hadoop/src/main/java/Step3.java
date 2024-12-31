@@ -66,9 +66,9 @@ public class Step3 {
         }        
     }            
 
-    public static class PartitionerClass3 extends Partitioner<Text, IntWritable> { //Get partition wasnt done today
+    public static class PartitionerClass3 extends Partitioner<Text, Text> { //Get partition wasnt done today
         @Override
-        public int getPartition(Text key, IntWritable value, int numPartitions) {
+        public int getPartition(Text key, Text value, int numPartitions) {
             String threeGram = key.toString();
             return Math.abs(threeGram.hashCode() % numPartitions);
         }
