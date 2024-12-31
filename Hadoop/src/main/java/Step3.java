@@ -1,6 +1,5 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -37,7 +36,7 @@ public class Step3 {
         public void reduce(Text key, Iterable<Text> values, Context context) 
                 throws IOException, InterruptedException {
 
-            String[] words = key.toString().split(" "); // Split by tab
+            String[] words = key.toString().split(" "); 
 
             if(words.length != 1){
                 System.out.println("word length should be 1");                
@@ -47,7 +46,7 @@ public class Step3 {
              //Length is 1 as it should
             String original1GramValue = null;
             for(Text value : values) {
-                if(value.toString().split("\t").length == 1) { //TAB OR SPACE??????
+                if(value.toString().split("\t").length == 1) { 
                     original1GramValue = value.toString();
                     break; 
                 }  
@@ -69,8 +68,9 @@ public class Step3 {
     public static class PartitionerClass3 extends Partitioner<Text, Text> { //Get partition wasnt done today
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
-            String threeGram = key.toString();
-            return Math.abs(threeGram.hashCode() % numPartitions);
+            String ngram = key.toString();
+            String firstWord = ngram.split(" ")[0];
+            return Math.abs(firstWord.hashCode() % numPartitions);
         }
     }
 
@@ -81,7 +81,7 @@ public class Step3 {
         job.setJarByClass(Step3.class);
         job.setMapperClass(MapperClass3.class);
         job.setPartitionerClass(PartitionerClass3.class);
-        job.setCombinerClass(ReducerClass3.class);
+        // job.setCombinerClass(ReducerClass3.class);
         job.setReducerClass(ReducerClass3.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);

@@ -16,7 +16,7 @@ public class App {
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
 
-    public static int numberOfInstances = 1;
+    public static int numberOfInstances = 7;
 
     public static void main(String[]args){
         credentialsProvider = new ProfileCredentialsProvider();
@@ -50,6 +50,11 @@ public class App {
         HadoopJarStepConfig thirdStep = new HadoopJarStepConfig()
                 .withJar("s3://hashem-itbarach/jars/Step3.jar")
                 .withMainClass("Step3");
+        
+        HadoopJarStepConfig forthStep = new HadoopJarStepConfig()
+                .withJar("s3://hashem-itbarach/jars/Step4.jar")
+                .withMainClass("Step4");
+
 
 
         StepConfig stepConfig1 = new StepConfig()
@@ -66,6 +71,11 @@ public class App {
                 .withName("Step3")
                 .withHadoopJarStep(thirdStep)
                 .withActionOnFailure("TERMINATE_JOB_FLOW");
+        
+        StepConfig stepConfig4 = new StepConfig()
+                .withName("Step4")
+                .withHadoopJarStep(forthStep)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
                 
         //Job flow
         JobFlowInstancesConfig instances = new JobFlowInstancesConfig()
@@ -81,7 +91,7 @@ public class App {
         RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
                 .withName("Map reduce project")
                 .withInstances(instances)
-                .withSteps(stepConfig1, stepConfig2, stepConfig3)
+                .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
                 .withLogUri("s3://hashem-itbarach/logs/")
                 .withServiceRole("EMR_DefaultRole")
                 .withJobFlowRole("EMR_EC2_DefaultRole")

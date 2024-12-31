@@ -1,6 +1,5 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -96,7 +95,7 @@ public class Step2{
         job.setJarByClass(Step2.class);
         job.setMapperClass(MapperClass2.class);
         job.setPartitionerClass(PartitionerClass2.class);
-        job.setCombinerClass(ReducerClass2.class);
+        // job.setCombinerClass(ReducerClass2.class);
         job.setReducerClass(ReducerClass2.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
