@@ -24,17 +24,18 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
-public class Step1{
+public class Step1 {
 
     public static class MapperClass1 extends Mapper<LongWritable, Text, Text, IntWritable> {
         private Text word = new Text();
         private HashSet<String> stopWords = new HashSet<>();
 
         protected void setup(Context context) throws IOException, InterruptedException {
-            // Configure AWS client using instance profile credentials (recommended when running on AWS infrastructure)
+            // Configure AWS client using instance profile credentials (recommended when
+            // running on AWS infrastructure)
             AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-                                    .withRegion("us-east-1") // Specify your bucket region
-                                    .build();
+                    .withRegion("us-east-1") // Specify your bucket region
+                    .build();
 
             String bucketName = "hashem-itbarach"; // Your S3 bucket name
             String key = "heb-stopwords.txt"; // S3 object key for the stopwords file
@@ -42,7 +43,7 @@ public class Step1{
             try {
                 S3Object s3object = s3Client.getObject(bucketName, key);
                 try (S3ObjectInputStream inputStream = s3object.getObjectContent();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         stopWords.add(line.trim());
@@ -54,30 +55,30 @@ public class Step1{
                 e.printStackTrace();
             }
         }
-        
-        //ngram format from Google Books:
-        //ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
+
+        // ngram format from Google Books:
+        // ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
         @Override
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
-            
+
             if (fields.length == 5) {
                 // Extract n-gram and count data
                 String ngram = fields[0]; // "w1 w2 w3"
-                String [] words = ngram.split(" ");
-                for(String word : words) {
-                    if(stopWords.contains(word))
+                String[] words = ngram.split(" ");
+                for (String word : words) {
+                    if (stopWords.contains(word))
                         return;
                 }
                 int matchCount = Integer.parseInt(fields[2]);
-                
+
                 // Emit n-gram
                 word.set(ngram);
                 context.write(word, new IntWritable(matchCount));
             }
         }
-        
+
     }
 
     // yeled : 40 - send as it is
@@ -86,101 +87,97 @@ public class Step1{
     // yeled tov halah : 60
     // yeled nehmad halah : 70
 
+    public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text> {
+        private HashMap<String, Integer> currentWordGrams;
+        private String currentFirstWord = null;
+        private AmazonS3 s3Client;
+        protected long c0 = 0;
 
-public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text> {
-    private HashMap<String, Integer> currentWordGrams;
-    private String currentFirstWord = null;
-    private AmazonS3 s3Client;
-    protected long c0 = 0;
-    protected String log = "";
+        @Override
+        public void setup(Context context) throws IOException, InterruptedException {
+            // Initialize the S3 client
+            s3Client = AmazonS3ClientBuilder.standard()
+                    .withRegion("us-east-1") // Specify your region
+                    .build();
 
-    @Override
-    public void setup(Context context) throws IOException, InterruptedException {
-        // Initialize the S3 client
-        s3Client = AmazonS3ClientBuilder.standard()
-                                        .withRegion("us-east-1") // Specify your region
-                                        .build();
-        
-    }
+        }
 
-    @Override
-    public void reduce(Text key, Iterable<IntWritable> values, Context context) 
-            throws IOException, InterruptedException {
-        String keyString = key.toString();
-        String[] words = keyString.split(" "); // Split the key by space
-        String firstWord = words[0];
+        @Override
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            String keyString = key.toString().trim();
+            String[] words = keyString.split(" "); // Split the key by space
+            String firstWord = words[0];
 
-        // Write to log file
-        log += "Working on key: " + keyString + "\n";
+            // Write to log file
+            System.out.println("Working on key: " + keyString);
 
-        // Initialize or reset HashMap when first word changes
-        if (currentFirstWord == null || !currentFirstWord.equals(firstWord)) {
-            if (currentWordGrams != null) {
-                log+= "Key has been changed from: " + currentFirstWord + " to: " + firstWord + ". Passing HashMap. \n";
+            // Initialize or reset HashMap when first word changes
+            if (currentFirstWord == null || !currentFirstWord.equals(firstWord)) {
+                if (currentWordGrams != null) {
+                    System.out.println("Key has been changed from: " + currentFirstWord + " to: " + firstWord
+                            + ". Passing HashMap.");
 
-                for (Map.Entry<String, Integer> entry : currentWordGrams.entrySet()) {
-                    String ngram = entry.getKey();
-                    log+= ("Current n-gram in HashMap: " + ngram + "\n");
-                    String[] ngramWords = ngram.split(" ");
-                    int n = ngramWords.length;
-                    String w1 = ngramWords[0];
+                    for (Map.Entry<String, Integer> entry : currentWordGrams.entrySet()) {
+                        String ngram = entry.getKey();
+                        System.out.println("Current n-gram in HashMap: " + ngram);
+                        String[] ngramWords = ngram.split(" ");
+                        int n = ngramWords.length;
+                        String w1 = ngramWords[0];
 
-                    String sum = entry.getValue().toString();
-                    if (n == 1) {
-                        context.write(new Text(ngram), new Text(ngram + ":" + sum));
-                    } else if (n == 2) {
-                        String w1Sum = currentWordGrams.get(w1).toString();
-                        context.write(new Text(ngram), new Text(w1 + ":" + w1Sum + "\t" + ngram + ":" + sum));
-                    } else if (n == 3) {
-                        String w2 = ngramWords[1];
-                        String w1Sum = currentWordGrams.get(w1).toString();
-                        String w1w2Sum = currentWordGrams.get(w1 + " " + w2).toString();
-                        context.write(new Text(ngram), new Text(w1 + ":" + w1Sum + "\t" + w1 + " " + w2 + ":" + w1w2Sum + "\t" + ngram + ":" + sum));
+                        String sum = entry.getValue().toString();
+                        if (n == 1) {
+                            context.write(new Text(ngram), new Text(ngram + ":" + sum));
+                        } else if (n == 2) {
+                            Integer w1SumInteger = currentWordGrams.get(w1);
+                            String w1Sum = w1SumInteger != null ? w1SumInteger.toString() : "null";
+                            context.write(new Text(ngram), new Text(w1 + ":" + w1Sum + "\t" + ngram + ":" + sum));
+                        } else if (n == 3) {
+                            String w2 = ngramWords[1];
+                            Integer w1SumInteger = currentWordGrams.get(w1);
+                            String w1Sum = w1SumInteger != null ? w1SumInteger.toString() : "null";
+                            Integer w1w2SumInteger = currentWordGrams.get(w1 + " " + w2);
+                            String w1w2Sum = w1w2SumInteger != null ? w1w2SumInteger.toString() : "null";
+                            context.write(new Text(ngram), new Text(w1 + ":" + w1Sum + "\t" + w1 + " " + w2 + ":"
+                                    + w1w2Sum + "\t" + ngram + ":" + sum));
+                        }
                     }
                 }
+                currentFirstWord = firstWord;
+                currentWordGrams = new HashMap<>();
             }
-            currentFirstWord = firstWord;
-            currentWordGrams = new HashMap<>();
+
+            // Sum up the counts for this n-gram
+            int sum = 0;
+            for (IntWritable value : values) {
+                sum += value.get();
+            }
+            this.c0 += sum;
+
+            // Store in HashMap
+            currentWordGrams.put(keyString, sum);
+            System.out.println("Stored in HashMap: <" + keyString + " , " + sum + ">");
         }
 
-        // Sum up the counts for this n-gram
-        int sum = 0;
-        for (IntWritable value : values) {
-            sum += value.get();
-        }
-        this.c0 += sum;
+        @Override
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            // Convert c0 to a string to write to S3
+            String c0Content = String.valueOf(c0);
 
-        // Store in HashMap
-        currentWordGrams.put(keyString, sum);
-        log += "Stored in HashMap: <" + keyString + " , " + sum + ">" + "\n";
-    }
+            // Upload c0 content to S3
+            String bucketName = "hashem-itbarach"; // Your S3 bucket name
+            String c0Key = "output/c0.txt"; // The path in the bucket where you want to upload c0
 
-   
-
-    @Override
-    protected void cleanup(Context context) throws IOException, InterruptedException {
-        // Convert c0 to a string to write to S3
-        String c0Content = String.valueOf(c0);
-
-        // Upload c0 content to S3
-        String bucketName = "hashem-itbarach"; // Your S3 bucket name
-        String c0Key = "output/c0.txt"; // The path in the bucket where you want to upload c0
-
-        try {
-            // Upload c0 value to S3
-            s3Client.putObject(bucketName, c0Key, c0Content);
-            System.out.println("Successfully uploaded c0 to S3: " + c0);
-            byte[] tempBytes = log.getBytes("UTF-8");
-            log = new String(tempBytes , "UTF-8");
-            s3Client.putObject(bucketName, "prints/step1-logs.txt", log);
-            System.out.println("Successfully uploaded logs to S3");
-        } catch (Exception e) {
-            System.err.println("Error while uploading files to S3: " + e.getMessage());
-            e.printStackTrace();
+            try {
+                // Upload c0 value to S3
+                s3Client.putObject(bucketName, c0Key, c0Content);
+                System.out.println("Successfully uploaded c0 to S3: " + c0);
+            } catch (Exception e) {
+                System.err.println("Error while uploading files to S3: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
     }
-}
-
 
     public static class PartitionerClass1 extends Partitioner<Text, IntWritable> {
         @Override
@@ -190,7 +187,7 @@ public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text>
             return Math.abs(firstWord.hashCode() % numPartitions);
         }
     }
-    
+
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 1 started!");
         Configuration conf = new Configuration();
@@ -198,8 +195,8 @@ public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text>
         job.setJarByClass(Step1.class);
         job.setMapperClass(MapperClass1.class);
         job.setPartitionerClass(PartitionerClass1.class);
-        //job.setSortComparatorClass(NgramComparator.class);
-        //job.setCombinerClass(ReducerClass1.class);
+        // job.setSortComparatorClass(NgramComparator.class);
+        // job.setCombinerClass(ReducerClass1.class);
         job.setReducerClass(ReducerClass1.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(IntWritable.class);
@@ -207,15 +204,18 @@ public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text>
         job.setOutputValueClass(Text.class);
 
         // For n_grams S3 files.
-        // Note: This is English version and you should change the path to the relevant one
+        // Note: This is English version and you should change the path to the relevant
+        // one
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        SequenceFileInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/1gram/data"));
-        SequenceFileInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
-        SequenceFileInputFormat.addInputPath(job, new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
+        SequenceFileInputFormat.addInputPath(job,
+                new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/1gram/data"));
+        SequenceFileInputFormat.addInputPath(job,
+                new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
+        SequenceFileInputFormat.addInputPath(job,
+                new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
         TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output/step1"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
-
 
 }
