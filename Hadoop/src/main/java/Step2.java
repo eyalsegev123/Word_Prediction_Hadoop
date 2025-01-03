@@ -10,6 +10,8 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;     
 
 public class Step2 {
 
@@ -73,19 +75,19 @@ public class Step2 {
 
             else { // Length is 2
                 String original2GramValue = null;
+                List<Text> notOriginalValues = new LinkedList<>();
                 for (Text value : values) {
-                    if (value.toString().split("\t").length == 2) {
+                    if (value.toString().split("\t").length == 2) 
                         original2GramValue = value.toString();
-                        break;
-                    }
-                }
+                    else
+                        notOriginalValues.add(value);
 
-                for (Text value : values) {
-                    String newValueOf2gram = "";
-                    if (value.toString().split("\t").length != 2) {
-                        newValueOf2gram = original2GramValue + value.toString(); // Now the 3gram is in the 5th value
-                        context.write(new Text(words[1]), new Text(newValueOf2gram));
-                    }
+                }
+                StringBuilder newValueOf2gram = new StringBuilder();
+                for (Text value : notOriginalValues) {
+                    newValueOf2gram.setLength(0);
+                    newValueOf2gram.append(original2GramValue + "\t" + value.toString()); // Now the 3gram is in the 5th value
+                    context.write(new Text(words[1]), new Text(newValueOf2gram.toString()));
                 }
             }
         }
