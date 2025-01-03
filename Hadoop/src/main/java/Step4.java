@@ -1,5 +1,6 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableComparator;
@@ -22,8 +23,9 @@ import java.io.InputStreamReader;
 
 
 public class Step4 {
-    public static class MapperClass4 extends Mapper<Text, Text, Text, Text> {
+    public static class MapperClass4 extends Mapper<LongWritable, Text, Text, Text> {
         private long c0;
+        
         protected void setup(Context context) throws IOException, InterruptedException {
             //Read c0 from s3Client 
              AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
@@ -59,18 +61,35 @@ public class Step4 {
         //ngram format from Google Books:
         //ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
         @Override
-        public void map(Text textKey, Text textValue, Context context) throws IOException, InterruptedException {
+        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             
-            String[] values = textValue.toString().split("\t"); // Split by tab
-            for(String value : values) {
-                int indexOfColon = value.lastIndexOf(":");
-                value = value.substring(0, indexOfColon);
+            String line = value.toString();
+            String[] fields = line.split("\t"); //The key and all the values
+            String ngram = fields[0];
+            String firstWord = ngram.split(" ")[0];
+
+            String[] values = new String[fields.length - 1];
+            for(int i = 1; i < fields.length; i++) {
+                values[i-1] = fields[i];
             }
-            long N1 = Integer.parseInt(values[0]); //String N1
-            long N2 = Integer.parseInt(values[2]); //String N2
-            long N3 = Integer.parseInt(values[5]); //String N3
-            long C1 = Integer.parseInt(values[1]); //String C1
-            long C2 = Integer.parseInt(values[4]); //String C2
+
+            String[] numbersOfValues = new String[values.length];
+            for(int i = 0; i < numbersOfValues.length; i++) {
+                // If the first word of the 3gram is null it's not an error becaue we don't nees it to calculate the probability.
+                String[] currValue = values[i].split(":");
+                if((!(currValue[0].equals(firstWord))) && currValue[1] == "null") {
+                    // Write an error message to the context --> error: there is a word doesn't exist in 1gram.
+                    context.write(new Text(ngram + " --> error: probability can't be calculated"), new Text(""));
+                    return;
+                }
+                numbersOfValues[i] = values[i].split(":")[1];               
+            }
+
+            long N1 = Integer.parseInt(numbersOfValues[0]); //String N1
+            long N2 = Integer.parseInt(numbersOfValues[2]); //String N2
+            long N3 = Integer.parseInt(numbersOfValues[5]); //String N3
+            long C1 = Integer.parseInt(numbersOfValues[1]); //String C1
+            long C2 = Integer.parseInt(numbersOfValues[4]); //String C2
             
             double K2 = (Math.log(N2+1) + 1) / (Math.log(N2+1) + 2);
             double K3 = (Math.log(N3+1) + 1) / (Math.log(N3+1) + 2);
@@ -79,8 +98,7 @@ public class Step4 {
             double probabilty = K3*(N3/C2) + (1-K3)*K2*(N2/C1) + (1-K3)*(1-K2)*(N1/c0);
 
             // Create a new output key and value
-            String words = textKey.toString(); // Split key by space 
-            Text outputKey = new Text(words + " " + probabilty); // Copy the key
+            Text outputKey = new Text(ngram + " " + probabilty); // Copy the key
             Text outputValue = new Text(""); // Concatenate probability with original data
             
             // Write the key-value pair to the context
@@ -115,7 +133,7 @@ public class Step4 {
         @Override
         public int compare(WritableComparable w1, WritableComparable w2) {
             String[] ngram1 = ((Text) w1).toString().split(" ");
-            String[] ngram2 = ((Text) w2).toString().split(" ");
+             String[] ngram2 = ((Text) w2).toString().split(" ");
             
             // Compare first words
             int cmp = ngram1[0].compareTo(ngram2[0]);
@@ -146,6 +164,7 @@ public class Step4 {
 
         // Step 2: Configure the Job
         Job job = Job.getInstance(conf, "Step 4 - Processing with c0");
+        String bucketName = "hashem-itbarach";
         job.setJarByClass(Step4.class);
         job.setMapperClass(MapperClass4.class);
         job.setPartitionerClass(PartitionerClass4.class);
@@ -159,8 +178,8 @@ public class Step4 {
         // Step 3: Set Input/Output Paths
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        TextInputFormat.addInputPath(job, new Path("s3://hashem-itbarach/output/step3"));
-        TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output/step4"));
+        TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step3"));
+        TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step4"));
 
         // Step 4: Run the Job
         System.exit(job.waitForCompletion(true) ? 0 : 1);

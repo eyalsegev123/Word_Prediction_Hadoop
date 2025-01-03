@@ -1,5 +1,6 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -13,19 +14,30 @@ import java.io.IOException;
 
 public class Step3 {
     
-    public static class MapperClass3 extends Mapper<Text, Text, Text, Text> {
+    public static class MapperClass3 extends Mapper<LongWritable, Text, Text, Text> {
         //ngram format from Google Books:
         //ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
         @Override
-        public void map(Text textKey, Text textValue, Context context) throws IOException, InterruptedException {
-            String[] words = textKey.toString().split(" "); // Split by tab
-
-            if(words.length != 1){
-                System.out.println("word length should be 1");                
+        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            
+            String line = value.toString();
+            String[] fields = line.split("\t"); //The key and all the values
+            String ngram = fields[0];
+            String[] ngramWords = ngram.split(" "); // Split by space
+            String stringValue = "";
+            
+            for(int i = 1; i < fields.length; i++) {
+                if(i == fields.length - 1)
+                    stringValue += fields[i];
+                else
+                    stringValue += fields[i] + "\t";
+            }
+            
+            if(ngramWords.length != 1){                
                 return;
             }
             else
-                context.write(textKey, textValue);
+                context.write(new Text(ngram), new Text(stringValue));
         }
         
     }
@@ -39,11 +51,11 @@ public class Step3 {
             String[] words = key.toString().split(" "); 
 
             if(words.length != 1){
-                System.out.println("word length should be 1");                
+                System.out.println("word length should be 1");  //Should be 1      
                 return;
             }
             
-             //Length is 1 as it should
+             //Length is 1 as it should be
             String original1GramValue = null;
             for(Text value : values) {
                 if(value.toString().split("\t").length == 1) { 
@@ -76,6 +88,7 @@ public class Step3 {
 
      public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 3 started!");
+        String bucketName = "hashem-itbarach";
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "Step3 - Second Join");
         job.setJarByClass(Step3.class);
@@ -92,8 +105,8 @@ public class Step3 {
         // Note: This is English version and you should change the path to the relevant one
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        TextInputFormat.addInputPath(job, new Path("s3://hashem-itbarach/output/step2"));
-        TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output/step3"));
+        TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));
+        TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }

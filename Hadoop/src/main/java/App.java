@@ -15,6 +15,7 @@ public class App {
     public static AmazonS3 S3;
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
+    public static String bucketName = "hashem-itbarach";
 
     public static int numberOfInstances = 7;
 
@@ -38,21 +39,21 @@ public class App {
 
         // Step 1
         HadoopJarStepConfig firstStep = new HadoopJarStepConfig()
-                .withJar("s3://hashem-itbarach/jars/Step1.jar")
+                .withJar("s3://" + bucketName + "/jars/Step1.jar")
                 .withMainClass("Step1");
 
         // Step 2
         HadoopJarStepConfig secondStep = new HadoopJarStepConfig()
-                .withJar("s3://hashem-itbarach/jars/Step2.jar")
+                .withJar("s3://" + bucketName + "/jars/Step2.jar")
                 .withMainClass("Step2");
 
         //Step 3
         HadoopJarStepConfig thirdStep = new HadoopJarStepConfig()
-                .withJar("s3://hashem-itbarach/jars/Step3.jar")
+                .withJar("s3://" + bucketName + "/jars/Step3.jar")
                 .withMainClass("Step3");
         
         HadoopJarStepConfig forthStep = new HadoopJarStepConfig()
-                .withJar("s3://hashem-itbarach/jars/Step4.jar")
+                .withJar("s3://" + bucketName + "/jars/Step4.jar")
                 .withMainClass("Step4");
 
 
@@ -92,7 +93,7 @@ public class App {
                 .withName("Map reduce project")
                 .withInstances(instances)
                 .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
-                .withLogUri("s3://hashem-itbarach/logs/")
+                .withLogUri("s3://" + bucketName + "/logs/")
                 .withServiceRole("EMR_DefaultRole")
                 .withJobFlowRole("EMR_EC2_DefaultRole")
                 .withReleaseLabel("emr-5.11.0");

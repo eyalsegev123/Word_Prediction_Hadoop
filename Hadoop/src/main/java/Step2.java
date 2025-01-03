@@ -24,21 +24,25 @@ public class Step2 {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
             String ngram = fields[0];
-            String[] words = ngram.split(" "); // Split by space
-            String StringValue = "";
-            for (String field : fields) {
-                if (field != fields[0]) {
-                    StringValue += field;
-                }
+            String[] ngramWords = ngram.split(" "); // Split by space
+            String stringValue = "";
+            
+            for(int i = 1; i < fields.length; i++) {
+                if(i == fields.length - 1)
+                    stringValue += fields[i];
+                else
+                    stringValue += fields[i] + "\t";
             }
-            if (words.length == 3) {
+
+            if (ngramWords.length == 3) {
                 // Extract n-gram and count data
-                String twoGram = words[1] + " " + words[2]; // "w1 w2"
+                String twoGram = ngramWords[1] + " " + ngramWords[2]; // "w1 w2"
                 // Emit 2-gram
                 word.set(twoGram);
-                context.write(word, new Text(StringValue));
-            } else
-                context.write(new Text(word), new Text(StringValue));
+                context.write(word, new Text(stringValue));
+            } 
+            else
+                context.write(new Text(word), new Text(stringValue));
         }
 
     }
@@ -98,6 +102,7 @@ public class Step2 {
 
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 2 started!");
+        String bucketName = "hashem-itbarach";
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "Step2 - First Join");
         job.setJarByClass(Step2.class);
@@ -114,8 +119,8 @@ public class Step2 {
         // one
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        TextInputFormat.addInputPath(job, new Path("s3://hashem-itbarach/output/step1"));
-        TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output/step2"));
+        TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step1"));
+        TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step2"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }

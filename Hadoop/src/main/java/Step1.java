@@ -206,6 +206,7 @@ public class Step1 {
         // For n_grams S3 files.
         // Note: This is English version and you should change the path to the relevant
         // one
+        String bucketName = "hashem-itbarach"; // Your S3 bucket name
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         SequenceFileInputFormat.addInputPath(job,
@@ -214,7 +215,7 @@ public class Step1 {
                 new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
         SequenceFileInputFormat.addInputPath(job,
                 new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
-        TextOutputFormat.setOutputPath(job, new Path("s3://hashem-itbarach/output/step1"));
+        TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 
