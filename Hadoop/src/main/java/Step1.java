@@ -1,9 +1,9 @@
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-// import org.apache.hadoop.io.WritableComparable;
-// import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.URI;
 
 import org.apache.hadoop.conf.Configuration;
 import com.amazonaws.services.s3.AmazonS3;
@@ -90,17 +91,11 @@ public class Step1 {
     public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text> {
         private HashMap<String, Integer> currentWordGrams;
         private String currentFirstWord = null;
-        private AmazonS3 s3Client;
-        protected long c0 = 0;
-
-        @Override
-        public void setup(Context context) throws IOException, InterruptedException {
-            // Initialize the S3 client
-            s3Client = AmazonS3ClientBuilder.standard()
-                    .withRegion("us-east-1") // Specify your region
-                    .build();
-
+        
+        private static enum Counters {
+            C0 // Define a custom counter
         }
+
 
         @Override
         public void reduce(Text key, Iterable<IntWritable> values, Context context)
@@ -152,31 +147,15 @@ public class Step1 {
             for (IntWritable value : values) {
                 sum += value.get();
             }
-            this.c0 += sum;
+            
+            context.getCounter(Counters.C0).increment(sum);
 
             // Store in HashMap
             currentWordGrams.put(keyString, sum);
             System.out.println("Stored in HashMap: <" + keyString + " , " + sum + ">");
         }
 
-        @Override
-        protected void cleanup(Context context) throws IOException, InterruptedException {
-            // Convert c0 to a string to write to S3
-            String c0Content = String.valueOf(c0);
-
-            // Upload c0 content to S3
-            String bucketName = "hashem-itbarach"; // Your S3 bucket name
-            String c0Key = "output/c0.txt"; // The path in the bucket where you want to upload c0
-
-            try {
-                // Upload c0 value to S3
-                s3Client.putObject(bucketName, c0Key, c0Content);
-                System.out.println("Successfully uploaded c0 to S3: " + c0);
-            } catch (Exception e) {
-                System.err.println("Error while uploading files to S3: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
+        
     }
 
     public static class PartitionerClass1 extends Partitioner<Text, IntWritable> {
@@ -216,7 +195,27 @@ public class Step1 {
         SequenceFileInputFormat.addInputPath(job,
                 new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
-        System.exit(job.waitForCompletion(true) ? 0 : 1);
+        
+        boolean success = job.waitForCompletion(true);
+        
+        if (success) {
+            // Retrieve and save the counter value after job completion
+            long c0Value = job.getCounters()
+                            .findCounter(ReducerClass1.Counters.C0)
+                            .getValue();
+            System.out.println("Counter C0 Value: " + c0Value);
+
+            // Create an S3 path to save the counter value
+            String counterFilePath = "s3://" + bucketName + "/output/step1/counter_c0.txt";
+
+            // Write the counter value to the file in S3
+            FileSystem fs = FileSystem.get(new URI("s3://" + bucketName), conf);
+            Path counterPath = new Path(counterFilePath);
+            FSDataOutputStream out = fs.create(counterPath);
+            out.writeBytes("Counter C0 Value: " + c0Value + "\n");
+            out.close();
+        }
+        System.exit(success ? 0 : 1);
     }
 
 }

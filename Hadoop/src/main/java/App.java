@@ -51,7 +51,7 @@ public class App {
         HadoopJarStepConfig thirdStep = new HadoopJarStepConfig()
                 .withJar("s3://" + bucketName + "/jars/Step3.jar")
                 .withMainClass("Step3");
-        
+        //Step 4
         HadoopJarStepConfig forthStep = new HadoopJarStepConfig()
                 .withJar("s3://" + bucketName + "/jars/Step4.jar")
                 .withMainClass("Step4");

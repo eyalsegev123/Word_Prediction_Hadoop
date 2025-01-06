@@ -11,12 +11,11 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
 import java.util.LinkedList;
-import java.util.List;     
+import java.util.List;
 
 public class Step2 {
 
     public static class MapperClass2 extends Mapper<LongWritable, Text, Text, Text> {
-        private Text word = new Text();
 
         // ngram format from Google Books:
         // ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
@@ -40,11 +39,10 @@ public class Step2 {
                 // Extract n-gram and count data
                 String twoGram = ngramWords[1] + " " + ngramWords[2]; // "w1 w2"
                 // Emit 2-gram
-                word.set(twoGram);
-                context.write(word, new Text(stringValue));
+                context.write(new Text(twoGram), new Text(stringValue));
             } 
             else
-                context.write(new Text(word), new Text(stringValue));
+                context.write(new Text(ngram), new Text(stringValue));
         }
 
     }
@@ -59,37 +57,48 @@ public class Step2 {
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            String[] words = key.toString().split(" ");
-
-            if (words.length == 1) {
-                String valueOf1gram = "";
-                for (Text value : values)
-                    valueOf1gram += value.toString();
-                context.write(key, new Text(valueOf1gram));
-            }
-
-            else if (words.length != 2) {
-                System.out.println("error: got a 3gram");
-                return;
-            }
-
-            else { // Length is 2
-                String original2GramValue = null;
-                List<Text> notOriginalValues = new LinkedList<>();
-                for (Text value : values) {
-                    if (value.toString().split("\t").length == 2) 
-                        original2GramValue = value.toString();
-                    else
-                        notOriginalValues.add(value);
-
+            String[] ngramWords = key.toString().split(" ");
+            boolean h = false;
+            if (ngramWords.length == 1) {
+                if(ngramWords[0].trim().equals("החיצונית")){
+                    h = true;
                 }
+                String valueOf1gram = "";
+                Integer numOfValues = 0;
+                for (Text value : values) {
+                    if(h)
+                        context.write(new Text("[DEBUG]: key --> " + key.toString()) , new Text(numOfValues + "_th value --> " + value.toString()));
+                    valueOf1gram += value.toString();
+                    numOfValues++;
+                }
+                context.write(key , new Text(valueOf1gram));
+            }
+
+           
+            else { // Length is 2
+                if (ngramWords.length != 2) {
+                    return;
+                }
+    
+                String original2GramValue = "null";
+                List<Text> notOriginalValues = new LinkedList<>();
+                Integer numOfValues2 = 0;
+                for (Text value : values) {
+                    if (value.toString().split("\t").length == 2) {
+                        original2GramValue = value.toString();
+                        numOfValues2++;                    
+                    }
+                    else 
+                        notOriginalValues.add(value);
+                }
+
                 StringBuilder newValueOf2gram = new StringBuilder();
                 for (Text value : notOriginalValues) {
                     newValueOf2gram.setLength(0);
-                    newValueOf2gram.append(original2GramValue + "\t" + value.toString()); // Now the 3gram is in the 5th value
-                    context.write(new Text(words[1]), new Text(newValueOf2gram.toString()));
+                    newValueOf2gram.append(original2GramValue + "\t" + value.toString()); // Now the 3gram is in the 5th value. original2gramvalue can be "null"
+                    context.write(new Text(ngramWords[1]), new Text(newValueOf2gram.toString()));
                 }
-            }
+            }   
         }
     }
 

@@ -1,4 +1,5 @@
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -10,15 +11,13 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.fs.FileSystem;
 
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 
 
 
@@ -27,35 +26,10 @@ public class Step4 {
         private long c0;
         
         protected void setup(Context context) throws IOException, InterruptedException {
-            //Read c0 from s3Client 
-             AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-                                .withRegion("us-east-1") // Specify your bucket region
-                                .build();
-
-            String bucketName = "hashem-itbarach"; // Your S3 bucket name
-            String key = "output/c0.txt"; // The path to the file in the bucket
-
-            try {
-                // Retrieve the object from S3
-                S3Object s3Object = s3Client.getObject(bucketName, key);
-
-                // Read the content of the file
-                try (S3ObjectInputStream inputStream = s3Object.getObjectContent();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-
-                    // Parse the content to retrieve c0
-                    String line = reader.readLine();
-                    if (line != null) {
-                        c0 = Long.parseLong(line.trim());
-                        System.out.println("Successfully loaded c0 from S3: " + c0);
-                    } else {
-                        System.err.println("c0 file is empty.");
-                    }
-                }
-            } catch (Exception e) {
-                System.err.println("Error while reading c0 from S3: " + e.getMessage());
-                e.printStackTrace();
-            }
+            // Read c0 from the job configuration passed in Step 4
+            c0 = context.getConfiguration().getLong("c0Value", 1L);  // Default value set to 1L if not found
+            
+            System.out.println("Successfully loaded c0 from job configuration: " + c0);
         }
         
         //ngram format from Google Books:
@@ -63,33 +37,34 @@ public class Step4 {
         @Override
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             
-            String line = value.toString();
-            String[] fields = line.split("\t"); //The key and all the values
-            String ngram = fields[0];
+            String[] fields = value.toString().split("\t"); //The key and all the values
+            String ngram = fields[0]; //The key
             String firstWord = ngram.split(" ")[0];
 
             String[] values = new String[fields.length - 1];
             for(int i = 1; i < fields.length; i++) {
                 values[i-1] = fields[i];
             }
+            if(values.length < 6)
+                return;
 
-            String[] numbersOfValues = new String[values.length];
+            Integer[] numbersOfValues = new Integer[values.length];
             for(int i = 0; i < numbersOfValues.length; i++) {
-                // If the first word of the 3gram is null it's not an error becaue we don't nees it to calculate the probability.
+                // If the first word of the 3gram is null it's not an error becaue we don't need it to calculate the probability.
                 String[] currValue = values[i].split(":");
-                if((!(currValue[0].equals(firstWord))) && currValue[1] == "null") {
+                if(currValue.length < 2 || ((!(currValue[0].equals(firstWord))) && currValue[1] == "null")) {
                     // Write an error message to the context --> error: there is a word doesn't exist in 1gram.
-                    context.write(new Text(ngram + " --> error: probability can't be calculated"), new Text(""));
+                    context.write(new Text(ngram + " --> error: probability can't be calculated (approved by Meni)"), new Text(""));
                     return;
                 }
-                numbersOfValues[i] = values[i].split(":")[1];               
+                numbersOfValues[i] = Integer.parseInt(currValue[1]);               
             }
-
-            long N1 = Integer.parseInt(numbersOfValues[0]); //String N1
-            long N2 = Integer.parseInt(numbersOfValues[2]); //String N2
-            long N3 = Integer.parseInt(numbersOfValues[5]); //String N3
-            long C1 = Integer.parseInt(numbersOfValues[1]); //String C1
-            long C2 = Integer.parseInt(numbersOfValues[4]); //String C2
+            
+            long N1 = numbersOfValues[0]; //String N1
+            long N2 = numbersOfValues[2]; //String N2
+            long N3 = numbersOfValues[5]; //String N3
+            long C1 = numbersOfValues[1]; //String C1
+            long C2 = numbersOfValues[4]; //String C2
             
             double K2 = (Math.log(N2+1) + 1) / (Math.log(N2+1) + 2);
             double K3 = (Math.log(N3+1) + 1) / (Math.log(N3+1) + 2);
@@ -162,9 +137,32 @@ public class Step4 {
         // Step 1: Initialize Configuration
         Configuration conf = new Configuration();
 
-        // Step 2: Configure the Job
-        Job job = Job.getInstance(conf, "Step 4 - Processing with c0");
+        // Step 2: Retrieve the counter value from S3
         String bucketName = "hashem-itbarach";
+        String counterFilePath = "s3://" + bucketName + "/output/step1/counter_c0.txt";
+        FileSystem fs = FileSystem.get(new URI("s3://" + bucketName), conf);
+        Path counterPath = new Path(counterFilePath);
+
+        // Read the counter value from the file in S3
+        FSDataInputStream in = fs.open(counterPath);
+        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        String line;
+        long c0Value = 0;
+
+        // Parse the counter value from the file
+        while ((line = br.readLine()) != null) {
+            if (line.contains("Counter C0 Value:")) {
+                String[] parts = line.split(":");
+                c0Value = Long.parseLong(parts[1].trim());
+                System.out.println("Retrieved Counter C0 Value: " + c0Value);
+            }
+        }
+
+        br.close();
+        in.close();
+
+        // Step 3: Configure the Job
+        Job job = Job.getInstance(conf, "Step 4 - Processing with c0");
         job.setJarByClass(Step4.class);
         job.setMapperClass(MapperClass4.class);
         job.setPartitionerClass(PartitionerClass4.class);
@@ -175,14 +173,18 @@ public class Step4 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        // Step 3: Set Input/Output Paths
+        // Pass the counter value to the job (can be done using JobConf or other methods if needed)
+        job.getConfiguration().setLong("c0Value", c0Value);
+
+        // Step 4: Set Input/Output Paths
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step4"));
 
-        // Step 4: Run the Job
+        // Step 5: Run the Job
         System.exit(job.waitForCompletion(true) ? 0 : 1);
-    }
+}
+
      
 }

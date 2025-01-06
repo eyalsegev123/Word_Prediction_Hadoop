@@ -10,6 +10,8 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;   
 
 
 public class Step3 {
@@ -20,24 +22,23 @@ public class Step3 {
         @Override
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             
-            String line = value.toString();
-            String[] fields = line.split("\t"); //The key and all the values
-            String ngram = fields[0];
+            String[] fields = value.toString().split("\t"); //The key and all the values
+            String ngram = fields[0]; //The key
             String[] ngramWords = ngram.split(" "); // Split by space
-            String stringValue = "";
-            
-            for(int i = 1; i < fields.length; i++) {
-                if(i == fields.length - 1)
-                    stringValue += fields[i];
-                else
-                    stringValue += fields[i] + "\t";
-            }
+            String valuesInString = "";
             
             if(ngramWords.length != 1){                
                 return;
             }
-            else
-                context.write(new Text(ngram), new Text(stringValue));
+
+            for(int i = 1; i < fields.length; i++) {
+                if(i == fields.length - 1)
+                    valuesInString += fields[i];
+                else
+                    valuesInString += fields[i] + "\t";
+            }
+
+            context.write(new Text(ngram), new Text(valuesInString));
         }
         
     }
@@ -50,30 +51,37 @@ public class Step3 {
 
             String[] words = key.toString().split(" "); 
 
-            if(words.length != 1){
-                System.out.println("word length should be 1");  //Should be 1      
+            //Word length should be 1
+            if(words.length != 1){   
                 return;
             }
             
              //Length is 1 as it should be
-            String original1GramValue = null;
+            String original1GramValue = "null";
+            List<Text> notOriginalValues = new LinkedList<>();
             for(Text value : values) {
-                if(value.toString().split("\t").length == 1) { 
-                    original1GramValue = value.toString();
-                    break; 
-                }  
+                if(value.toString().split("\t").length == 1) 
+                    original1GramValue = value.toString(); 
+                else
+                    notOriginalValues.add(value);
             }   
-                               
-            for (Text value : values) {
-                String newValueOf1gram = "";
-                if(value.toString().split("\t").length != 1) {
-                    newValueOf1gram = original1GramValue + value.toString(); //Now the 3gram is in the 6th value
-                    String threeGramWithNumber = value.toString().split("\t")[4];
-                    int indexOfColon = threeGramWithNumber.lastIndexOf(":");
-                    String threeGram = threeGramWithNumber.substring(0, indexOfColon);
-                    context.write(new Text(threeGram) , new Text(newValueOf1gram)); //values: (הלך) (טוב) (טוב הלך) (ילד) (ילד טוב) (ילד טוב הלך)
-                }    
-            }    
+
+            StringBuilder newValueOf1gram = new StringBuilder();
+            for(Text value : notOriginalValues){
+                newValueOf1gram.setLength(0);
+                newValueOf1gram.append(original1GramValue + "\t" + value.toString());
+            
+                String[] threeGramWithNumberArray = value.toString().split("\t");
+                String threeGramWithNumber = "null";
+                if(threeGramWithNumberArray.length < 5)
+                    return;
+                else
+                    threeGramWithNumber = threeGramWithNumberArray[4];
+                    
+                int indexOfColon = threeGramWithNumber.lastIndexOf(":");
+                String threeGram = threeGramWithNumber.substring(0, indexOfColon);
+                context.write(new Text(threeGram) , new Text(newValueOf1gram.toString()));
+            }        
         }        
     }            
 
