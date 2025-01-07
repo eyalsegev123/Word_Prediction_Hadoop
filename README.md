@@ -44,7 +44,10 @@ The system produces a sorted list of trigrams along with their conditional proba
 
 S3, in this location: s3://hashem-itbarach/jars
 
-#### 1. Prepare the JAR Files (\*):
+#### 1. Update your AWS credentials and Prepare the JAR Files (\*):
+
+We recommend to use nano for loading your AWS credentials.
+Command: nano ~/.aws/credentials
 
 Use Maven to package the project into separate JARs for each Step.
 
