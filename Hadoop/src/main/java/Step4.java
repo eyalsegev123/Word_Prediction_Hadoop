@@ -48,32 +48,31 @@ public class Step4 {
             if(values.length < 6)
                 return;
 
-            Integer[] numbersOfValues = new Integer[values.length];
+            Double[] numbersOfValues = new Double[values.length];
             for(int i = 0; i < numbersOfValues.length; i++) {
                 // If the first word of the 3gram is null it's not an error becaue we don't need it to calculate the probability.
                 String[] currValue = values[i].split(":");
                 if(currValue.length < 2 || ((!(currValue[0].equals(firstWord))) && currValue[1] == "null")) {
-                    // Write an error message to the context --> error: there is a word doesn't exist in 1gram.
-                    context.write(new Text(ngram + " --> error: probability can't be calculated (approved by Meni)"), new Text(""));
                     return;
                 }
-                numbersOfValues[i] = Integer.parseInt(currValue[1]);               
+                numbersOfValues[i] = Double.parseDouble(currValue[1]);               
             }
             
-            long N1 = numbersOfValues[0]; //String N1
-            long N2 = numbersOfValues[2]; //String N2
-            long N3 = numbersOfValues[5]; //String N3
-            long C1 = numbersOfValues[1]; //String C1
-            long C2 = numbersOfValues[4]; //String C2
+            double N1 = numbersOfValues[0]; //String N1
+            double N2 = numbersOfValues[2]; //String N2
+            double N3 = numbersOfValues[5]; //String N3
+            double C1 = numbersOfValues[1]; //String C1
+            double C2 = numbersOfValues[4]; //String C2
             
-            double K2 = (Math.log(N2+1) + 1) / (Math.log(N2+1) + 2);
-            double K3 = (Math.log(N3+1) + 1) / (Math.log(N3+1) + 2);
+            double K2 = ((Math.log(N2+1)/Math.log(2)) + 1 ) / (( Math.log(N2+1) / Math.log(2)) + 2); 
+            double K3 = ((Math.log(N3+1)/Math.log(2)) + 1 ) / (( Math.log(N3+1) / Math.log(2)) + 2); 
             
             //Calculate the probability
-            double probabilty = K3*(N3/C2) + (1-K3)*K2*(N2/C1) + (1-K3)*(1-K2)*(N1/c0);
-
+            double probabilty = K3*(N3/C2) + (1-K3)*K2*(N2/C1) + (1-K3)*(1-K2)*((double) N1/c0);
+            String prob = String.format("%.5f", probabilty);
+            
             // Create a new output key and value
-            Text outputKey = new Text(ngram + " " + probabilty); // Copy the key
+            Text outputKey = new Text(ngram + " " + prob); // Copy the key
             Text outputValue = new Text(""); // Concatenate probability with original data
             
             // Write the key-value pair to the context
@@ -87,7 +86,8 @@ public class Step4 {
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context) 
                 throws IOException, InterruptedException {
-            context.write(key, new Text(""));
+            Text value = values.iterator().next();
+            context.write(key, value);
         }        
     }            
 
