@@ -11,6 +11,8 @@ Eyal Segev (315144717)
 Lior Hagay (314872367)
 
 
+
+
 ## Project Overview
 
 This project generates a knowledge-base for a Hebrew word-prediction system using the Google 3-Gram,2-Gram and 1-Gram Hebrew datasets on Amazon Elastic MapReduce (EMR). The system calculates the conditional probability of each word in a trigram based on the dataset, producing a knowledge base that indicates the probability of possible next words for each pair of words.The primary goal is to develop an eﬀicient and scalable system capable of predicting the likelihood of word sequences, enhancing the functionality of language modeling applications and ensuring cost-eﬀectiveness in handling large datasets.
@@ -32,6 +34,8 @@ These datasets contain sequences of words with their corresponding usage frequen
 The system produces a sorted list of trigrams along with their conditional probabilities. This list is organized lexicographically by the ﬁrst two words of the trigram and in descending order by the probability of the third word. The output is stored on S3, ensuring scalability and accessibility.
 
 * Location in S3: s3://hashem-itbarach/output
+
+
 
 
 ## How to Run the Project
@@ -57,6 +61,9 @@ Ensure that all JAR ﬁles for the steps are uploaded to the correct S3 paths as
 Run App.java locally to run the EMR jobs.
 
 Command: mvn exec:java -Dexec.mainClass="App"
+
+
+
 
 ## Project Description
 
@@ -122,6 +129,8 @@ Joins (w3, str with 1 value) with (w3, str with 5 values) to form (w1 w2 w3, str
 **Reducer:** Outputs the 3-gram and probability pairs directly without modiﬁcation.
 
 **Comparator:** Lexicographically sorts 3-grams by the ﬁrst two words and, for ties, by descending probability of the third word.
+
+
 
 
 ## System Requirements
